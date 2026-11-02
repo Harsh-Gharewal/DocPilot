@@ -62,3 +62,4 @@ def seed_corpus(source_dir: str = "sample_docs") -> None:
 
 if __name__ == "__main__":
     seed_corpus()
+

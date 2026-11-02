@@ -327,3 +327,4 @@ with tab_docs:
             st.dataframe(rows, use_container_width=True)
         else:
             st.info("No processed documents found in storage.")
+

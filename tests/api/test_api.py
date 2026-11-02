@@ -97,3 +97,4 @@ def test_ingest_endpoint_and_status():
     assert status_resp.status_code == 200
     status_data = status_resp.json()
     assert status_data["job_id"] == job_id
+

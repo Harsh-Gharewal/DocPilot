@@ -26,3 +26,4 @@ docker-build:
 
 docker-up:
 	docker-compose up -d
+
