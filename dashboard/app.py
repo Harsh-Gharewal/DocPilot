@@ -53,9 +53,28 @@ st.markdown(
         color: #1E293B !important;
     }
 
+    /* Remove Black Top Blank Space & Streamlit Header */
+    [data-testid="stDecoration"] {
+        display: none !important;
+    }
+    header[data-testid="stHeader"],
+    .stApp > header,
+    [data-testid="stHeader"] {
+        background: #EEF2F6 !important;
+        background-color: #EEF2F6 !important;
+        color: #1E293B !important;
+    }
+    [data-testid="stHeader"] * {
+        color: #64748B !important;
+    }
+    .stDeployButton,
+    [data-testid="stDeployButton"] {
+        display: none !important;
+    }
+
     /* Main Container Padding */
     .block-container {
-        padding-top: 1.5rem !important;
+        padding-top: 1rem !important;
         padding-bottom: 2.5rem !important;
         max-width: 1400px;
     }
@@ -271,13 +290,54 @@ st.markdown(
     div[data-baseweb="select"] * {
         color: #0F172A !important;
     }
-    div[data-baseweb="popover"], ul[data-baseweb="menu"] {
+    /* Streamlit 3-Dots Popup Menu & Dropdowns */
+    div[data-baseweb="popover"] {
+        border-radius: 16px !important;
+        box-shadow: 0 12px 32px rgba(112, 144, 176, 0.22) !important;
+        border: 1px solid #E2E8F0 !important;
+        background-color: #FFFFFF !important;
         background: #FFFFFF !important;
-        color: #0F172A !important;
+        overflow: hidden !important;
+    }
+    div[data-baseweb="popover"] > div,
+    ul[data-baseweb="menu"],
+    div[data-testid="stMainMenuPopover"] {
+        background-color: #FFFFFF !important;
+        background: #FFFFFF !important;
+        padding: 8px !important;
+        border-radius: 16px !important;
+    }
+    ul[data-baseweb="menu"] li {
+        background-color: #FFFFFF !important;
+        background: #FFFFFF !important;
+        color: #1E293B !important;
+        border-radius: 10px !important;
+        padding: 10px 16px !important;
+        margin: 4px 0 !important;
+        font-weight: 600 !important;
+        font-size: 0.92rem !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        transition: all 0.15s ease !important;
     }
     ul[data-baseweb="menu"] li:hover {
-        background: #EFF6FF !important;
+        background-color: #EFF6FF !important;
         color: #2563EB !important;
+    }
+    /* Fix dark bottom Developer Options / Clear Cache section */
+    div[data-baseweb="popover"] * {
+        background-color: transparent !important;
+        color: #1E293B !important;
+    }
+    ul[data-baseweb="menu"] li:hover * {
+        color: #2563EB !important;
+    }
+    ul[data-baseweb="menu"] hr,
+    div[data-baseweb="popover"] hr {
+        border: none !important;
+        border-top: 1px solid #E2E8F0 !important;
+        margin: 6px 0 !important;
     }
 
     /* Universal Label Styling (Dark and Bold) */
@@ -416,6 +476,93 @@ st.markdown(
         font-weight: 600 !important;
     }
 
+    /* Markdown Tables Styling */
+    .stMarkdown table {
+        width: 100% !important;
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+        margin: 1.2rem 0 1.6rem 0 !important;
+        border-radius: 14px !important;
+        overflow: hidden !important;
+        box-shadow: 0 4px 16px rgba(112, 144, 176, 0.08) !important;
+        border: 1.5px solid #E2E8F0 !important;
+        background: #FFFFFF !important;
+    }
+    .stMarkdown thead tr {
+        background: #F1F5F9 !important;
+    }
+    .stMarkdown th {
+        padding: 12px 16px !important;
+        font-size: 0.8rem !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.04em !important;
+        color: #475569 !important;
+        border: none !important;
+        text-align: left !important;
+    }
+    .stMarkdown td {
+        padding: 12px 16px !important;
+        font-size: 0.92rem !important;
+        color: #1E293B !important;
+        border-top: 1px solid #F1F5F9 !important;
+        border-bottom: none !important;
+        border-left: none !important;
+        border-right: none !important;
+    }
+    .stMarkdown tbody tr:nth-child(even) {
+        background-color: #F8FAFC !important;
+    }
+    .stMarkdown tbody tr:hover {
+        background-color: #EFF6FF !important;
+    }
+
+    /* Replace dark code pills with vibrant soft badges */
+    code, .stMarkdown code {
+        background: #EFF6FF !important;
+        color: #1D4ED8 !important;
+        border: 1px solid #BFDBFE !important;
+        padding: 3px 10px !important;
+        border-radius: 8px !important;
+        font-weight: 700 !important;
+        font-size: 0.84rem !important;
+    }
+
+    /* Markdown Report Typography & Lists */
+    .stMarkdown h1, .stMarkdown h2 {
+        color: #0F172A !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.02em !important;
+        margin-top: 1.6rem !important;
+        margin-bottom: 0.8rem !important;
+        padding-bottom: 0.4rem !important;
+        border-bottom: 2px solid #E2E8F0 !important;
+    }
+    .stMarkdown h3 {
+        color: #2563EB !important;
+        font-weight: 700 !important;
+        font-size: 1.05rem !important;
+        margin-top: 1.2rem !important;
+        margin-bottom: 0.6rem !important;
+    }
+    .stMarkdown ul, .stMarkdown ol {
+        background: #FFFFFF !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 12px !important;
+        padding: 1rem 1.4rem 1rem 2.2rem !important;
+        margin: 0.8rem 0 1.2rem 0 !important;
+        box-shadow: 0 4px 12px rgba(112, 144, 176, 0.05) !important;
+    }
+    .stMarkdown li {
+        color: #334155 !important;
+        font-size: 0.94rem !important;
+        line-height: 1.65 !important;
+        margin-bottom: 0.45rem !important;
+    }
+    .stMarkdown li strong {
+        color: #0F172A !important;
+    }
+
     /* File Uploader */
     [data-testid="stFileUploadDropzone"] {
         background: #FFFFFF !important;
@@ -459,8 +606,7 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    # Pipeline Settings in Soft Card
-    st.markdown('<div class="soft-card" style="padding: 1.2rem; margin-bottom: 1rem;">', unsafe_allow_html=True)
+    # Pipeline Settings
     st.markdown('<div style="font-size: 0.88rem; font-weight: 800; color: #0F172A; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.8rem;">⚙️ Pipeline Settings</div>', unsafe_allow_html=True)
 
     strategy = st.selectbox(
@@ -478,7 +624,6 @@ with st.sidebar:
     )
 
     top_k = st.slider("Top K Retrieved Chunks", min_value=1, max_value=10, value=5)
-    st.markdown("</div>", unsafe_allow_html=True)
 
     # Engine Status in Soft Card
     chunk_cnt = 0
@@ -626,7 +771,6 @@ tab_query, tab_compare, tab_eval, tab_docs = st.tabs(
 # TAB 1: Query & Ask
 # ==============================================================================
 with tab_query:
-    st.markdown('<div class="soft-card">', unsafe_allow_html=True)
     st.markdown(
         """
         <div class="card-header-bar">
@@ -660,8 +804,6 @@ with tab_query:
         ask_submitted = st.button("🚀 Submit Query", type="primary", use_container_width=True)
     with col_info:
         st.caption(f"Engine: **{mode}** | Strategy: **{strategy}** | Top K: **{top_k}**")
-
-    st.markdown("</div>", unsafe_allow_html=True)
 
     if ask_submitted and query_text.strip():
         with st.spinner("Retrieving evidence chunks, reranking candidates, and synthesizing answer..."):
@@ -716,7 +858,6 @@ with tab_query:
 
         # Citations Section
         if resp.citations:
-            st.markdown('<div class="soft-card">', unsafe_allow_html=True)
             st.markdown(
                 """
                 <div class="card-header-bar">
@@ -751,7 +892,6 @@ with tab_query:
                     """,
                     unsafe_allow_html=True,
                 )
-            st.markdown("</div>", unsafe_allow_html=True)
 
         with st.expander("🔬 Telemetry & Stage Latency Inspection"):
             st.json({
@@ -765,7 +905,6 @@ with tab_query:
 # TAB 2: Side-by-Side Modality Comparison
 # ==============================================================================
 with tab_compare:
-    st.markdown('<div class="soft-card">', unsafe_allow_html=True)
     st.markdown(
         """
         <div class="card-header-bar">
@@ -786,7 +925,6 @@ with tab_compare:
     )
 
     run_comp = st.button("⚡ Run Comparative Analysis", type="primary")
-    st.markdown("</div>", unsafe_allow_html=True)
 
     if run_comp and comp_query.strip():
         with st.spinner("Executing parallel retrieval pipelines..."):
@@ -875,28 +1013,29 @@ with tab_compare:
 # TAB 3: Evaluation Benchmark Report
 # ==============================================================================
 with tab_eval:
+    st.markdown(
+        """
+        <div class="card-header-bar">
+            <div class="card-header-title">
+                <span class="dot-icon">⠿</span>
+                <span>Evaluation Metrics by Chunking Strategy</span>
+            </div>
+            <span style="font-size: 0.8rem; font-weight: 600; color: #64748B;">50 Golden Queries Benchmark</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     chart_path = ROOT_DIR / "eval" / "results" / "strategy_comparison.png"
     if chart_path.exists():
-        st.markdown(
-            """
-            <div class="soft-card">
-                <div class="card-header-bar">
-                    <div class="card-header-title">
-                        <span class="dot-icon">⠿</span>
-                        <span>Evaluation Metrics by Chunking Strategy</span>
-                    </div>
-                    <span style="font-size: 0.8rem; font-weight: 600; color: #64748B;">50 Golden Queries</span>
-                </div>
-            """,
-            unsafe_allow_html=True,
-        )
         st.image(str(chart_path), use_column_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
 
     report_path = ROOT_DIR / "eval" / "results" / "chunking_comparison.md"
     if report_path.exists():
-        with st.expander("📄 Detailed Strategy Comparison Report (Markdown)", expanded=True):
+        with st.expander("📊 Detailed Strategy Comparison & Category Breakdown", expanded=True):
             report_text = report_path.read_text(encoding="utf-8")
+            # Remove redundant broken relative image reference inside markdown
+            report_text = report_text.replace("![Headline Metrics Chart](strategy_comparison.png)", "")
             st.markdown(report_text)
 
 
@@ -904,7 +1043,6 @@ with tab_eval:
 # TAB 4: Document Ingestion & Management
 # ==============================================================================
 with tab_docs:
-    st.markdown('<div class="soft-card">', unsafe_allow_html=True)
     st.markdown(
         """
         <div class="card-header-bar">
@@ -952,10 +1090,7 @@ with tab_docs:
             time.sleep(1)
             st.rerun()
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
     # Document Inventory Table
-    st.markdown('<div class="soft-card">', unsafe_allow_html=True)
     st.markdown(
         """
         <div class="card-header-bar">
@@ -993,4 +1128,3 @@ with tab_docs:
             st.dataframe(rows, use_container_width=True)
         else:
             st.info("No processed documents found in storage.")
-    st.markdown("</div>", unsafe_allow_html=True)
