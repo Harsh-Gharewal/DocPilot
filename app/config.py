@@ -30,8 +30,14 @@ class Settings(BaseSettings):
     anthropic_chat_model: str = Field(
         default="claude-3-5-sonnet-20241022", description="Anthropic chat model name"
     )
+    embedding_provider: Literal["openai", "local"] = Field(
+        default="openai", description="Embedding provider: 'openai' or 'local'"
+    )
     openai_embedding_model: str = Field(
         default="text-embedding-3-small", description="OpenAI embedding model name"
+    )
+    local_embedding_model: str = Field(
+        default="all-MiniLM-L6-v2", description="HuggingFace model identifier for local sentence-transformers"
     )
 
     # Storage Paths

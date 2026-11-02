@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Production Deployment Guide</title>
+    <style>body { font-family: sans-serif; }</style>
+</head>
+<body>
+    <nav><a href="#overview">Overview</a></nav>
+    <h1>Deployment Runbook</h1>
+    <p>This runbook outlines standard deployment procedures for core backend services across production Kubernetes clusters.</p>
+    
+    <h2>Healthcheck Endpoints</h2>
+    <p>Every microservice must expose a <code>/health</code> endpoint returning HTTP 200 with status ok. If the vector store or database becomes unreachable, <code>/health</code> responds with HTTP 503 and logs <code>CRIT_HEALTHCHECK_FAILED</code>.</p>
+    
+    <h2>Rolling Updates</h2>
+    <p>Kubernetes deployments use a rolling update strategy with maxSurge set to 25% and maxUnavailable set to 0. This guarantees zero-downtime service deployments.</p>
+</body>
+</html>
+

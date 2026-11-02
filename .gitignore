@@ -20,6 +20,10 @@ htmlcov/
 # Project Data Directories (Vector & Keyword store artifacts)
 data/chroma/
 data/bm25/
+data/raw/
+data/processed/
+*.sqlite
+*.sqlite3
 
 # Evaluation results cache
 eval/results/
