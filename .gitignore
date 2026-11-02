@@ -1,0 +1,30 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Environment Variables
+.env
+*.env.local
+
+# Python cache & artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Project Data Directories (Vector & Keyword store artifacts)
+data/chroma/
+data/bm25/
+
+# Evaluation results cache
+eval/results/
+.cache/
+
+# OS specific
+.DS_Store
+Thumbs.db
