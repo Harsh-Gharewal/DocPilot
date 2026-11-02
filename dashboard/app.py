@@ -47,8 +47,31 @@ st.markdown(
     /* Global Typography & Font Smoothing */
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
     
-    html, body, [class*="css"] {
+    html, body, [class*="css"], .stApp {
         font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background-color: #F8FAFC !important;
+        color: #0F172A !important;
+    }
+
+    /* Force all headings and text in main app to be dark and legible */
+    .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 {
+        color: #0F172A !important;
+        font-weight: 700 !important;
+    }
+    .stApp p, .stApp span, .stApp div {
+        color: #1E293B;
+    }
+    .stApp [data-testid="stCaptionContainer"] p {
+        color: #64748B !important;
+    }
+
+    /* Universal Widget Labels (Main & Sidebar) */
+    label[data-testid="stWidgetLabel"],
+    label[data-testid="stWidgetLabel"] p,
+    label[data-testid="stWidgetLabel"] span {
+        color: #0F172A !important;
+        font-weight: 700 !important;
+        font-size: 0.9rem !important;
     }
 
     /* Top Padding Adjustment */
@@ -361,11 +384,75 @@ st.markdown(
         font-size: 0.88rem;
     }
 
-    /* Sidebar Clean Styling */
+    /* Sidebar Clean & High-Contrast Styling */
     section[data-testid="stSidebar"] {
         background-color: #FFFFFF !important;
-        border-right: 1px solid #E2E8F0;
+        border-right: 1px solid #E2E8F0 !important;
     }
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] h4,
+    section[data-testid="stSidebar"] .stMarkdown h3 {
+        color: #0F172A !important;
+        font-weight: 700 !important;
+    }
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] label p,
+    section[data-testid="stSidebar"] label span,
+    section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
+        color: #0F172A !important;
+        font-weight: 700 !important;
+        font-size: 0.9rem !important;
+    }
+    section[data-testid="stSidebar"] .stMarkdown p,
+    section[data-testid="stSidebar"] p {
+        color: #334155 !important;
+    }
+    
+    /* Dropdowns & Selectboxes Styling (Main & Sidebar) */
+    div[data-baseweb="select"] > div {
+        background-color: #FFFFFF !important;
+        border: 1.5px solid #CBD5E1 !important;
+        border-radius: 8px !important;
+        color: #0F172A !important;
+    }
+    div[data-baseweb="select"] div,
+    div[data-baseweb="select"] span {
+        color: #0F172A !important;
+        font-weight: 500 !important;
+    }
+    div[data-baseweb="popover"],
+    div[data-baseweb="popover"] div,
+    ul[data-baseweb="menu"],
+    ul[data-baseweb="menu"] li {
+        background-color: #FFFFFF !important;
+        color: #0F172A !important;
+    }
+    ul[data-baseweb="menu"] li:hover {
+        background-color: #EEF2FF !important;
+        color: #4F46E5 !important;
+    }
+
+    /* Slider styling in sidebar */
+    div[data-testid="stSlider"] div[data-testid="stWidgetLabel"] p,
+    div[data-testid="stSlider"] span,
+    div[data-testid="stSlider"] p,
+    div[data-testid="stSlider"] div {
+        color: #0F172A !important;
+    }
+
+    /* Text Inputs */
+    div[data-baseweb="input"] {
+        background-color: #FFFFFF !important;
+        border: 1.5px solid #CBD5E1 !important;
+        border-radius: 8px !important;
+    }
+    div[data-baseweb="input"] input {
+        color: #0F172A !important;
+        background-color: #FFFFFF !important;
+    }
+
     .sidebar-brand {
         display: flex;
         align-items: center;
@@ -859,7 +946,7 @@ with tab_eval:
             """,
             unsafe_allow_html=True,
         )
-        st.image(str(chart_path), use_container_width=True)
+        st.image(str(chart_path), use_column_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
     report_path = ROOT_DIR / "eval" / "results" / "chunking_comparison.md"
