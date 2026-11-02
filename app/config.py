@@ -4,7 +4,13 @@ Uses pydantic-settings to manage and validate all pipeline parameters.
 """
 
 from pathlib import Path
+import os
 from typing import Literal
+
+# Ensure offline operation for downloaded huggingface models
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -19,6 +25,7 @@ class Settings(BaseSettings):
     )
 
     # API Keys & LLM Provider
+    api_key: str = Field(default="docpilot-secret-key", description="DocPilot service API authorization key")
     openai_api_key: str = Field(default="", description="OpenAI API Key for embeddings and GPT-4o")
     anthropic_api_key: str = Field(default="", description="Anthropic API Key for Claude Sonnet")
     llm_provider: Literal["openai", "anthropic"] = Field(
@@ -37,7 +44,8 @@ class Settings(BaseSettings):
         default="text-embedding-3-small", description="OpenAI embedding model name"
     )
     local_embedding_model: str = Field(
-        default="all-MiniLM-L6-v2", description="HuggingFace model identifier for local sentence-transformers"
+        default="sentence-transformers/all-MiniLM-L6-v2",
+        description="HuggingFace model identifier for local sentence-transformers",
     )
 
     # Storage Paths

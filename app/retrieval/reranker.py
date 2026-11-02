@@ -2,12 +2,15 @@
 
 import json
 import logging
+import threading
 from typing import Any, Optional, Protocol, runtime_checkable
 
 from app.config import settings
 from app.retrieval.models import RetrievedChunk
 
 logger = logging.getLogger(__name__)
+
+_cross_encoder_lock = threading.Lock()
 
 
 @runtime_checkable
@@ -37,12 +40,17 @@ class CrossEncoderReranker:
 
     def _get_model(self):
         """Lazily initialize the CrossEncoder model."""
-        if self._model is None:
-            from sentence_transformers import CrossEncoder
+        with _cross_encoder_lock:
+            if self._model is None:
+                import os
+                # Prevent remote network probe timeouts if already cached locally
+                os.environ.setdefault("HF_HUB_OFFLINE", "1")
+                os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+                from sentence_transformers import CrossEncoder
 
-            logger.info(f"Loading CrossEncoder model: {self.model_name}")
-            self._model = CrossEncoder(self.model_name)
-        return self._model
+                logger.info(f"Loading CrossEncoder model: {self.model_name}")
+                self._model = CrossEncoder(self.model_name)
+            return self._model
 
     def rerank(
         self,
@@ -57,7 +65,8 @@ class CrossEncoderReranker:
 
         model = self._get_model()
         pairs = [(query, c.text) for c in candidates]
-        scores = model.predict(pairs)
+        with _cross_encoder_lock:
+            scores = model.predict(pairs)
 
         scored_candidates: list[tuple[float, RetrievedChunk]] = []
         for score, candidate in zip(scores, candidates):

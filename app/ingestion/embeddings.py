@@ -44,10 +44,14 @@ class EmbeddingClient:
     def _get_local_model(self):
         """Lazily initialize sentence-transformers model for local embeddings."""
         if self._local_model is None:
+            import os
+            os.environ.setdefault("HF_HUB_OFFLINE", "1")
+            os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
             from sentence_transformers import SentenceTransformer
 
-            logger.info(f"Loading local embedding model: {self.model}")
-            self._local_model = SentenceTransformer(self.model)
+            local_name = settings.local_embedding_model
+            logger.info(f"Loading local embedding model: {local_name}")
+            self._local_model = SentenceTransformer(local_name)
         return self._local_model
 
     def _get_client(self) -> OpenAI:
@@ -55,7 +59,7 @@ class EmbeddingClient:
         if self._client is None:
             if not self.api_key:
                 raise ValueError("OPENAI_API_KEY is not configured in settings or environment.")
-            self._client = OpenAI(api_key=self.api_key)
+            self._client = OpenAI(api_key=self.api_key, max_retries=0, timeout=10.0)
         return self._client
 
     def _init_cache(self) -> None:
@@ -165,21 +169,29 @@ class EmbeddingClient:
                             for orig_text, item in zip(batch, response.data):
                                 newly_computed[orig_text] = item.embedding
                             break
-                        except RateLimitError as rle:
+                        except (RateLimitError, APIError, Exception) as err:
+                            err_str = str(err).lower()
+                            if any(k in err_str for k in [
+                                "insufficient_quota", "credit_balance_exhausted", "invalid_api_key",
+                                "authentication", "connection error", "winerror", "proxyerror", "forbidden"
+                            ]):
+                                logger.warning(f"Unrecoverable embedding API error ({err}). Fast failover to local sentence-transformer.")
+                                local_model = self._get_local_model()
+                                encoded = local_model.encode(unique_missing, show_progress_bar=False)
+                                for orig_text, emb_vec in zip(unique_missing, encoded):
+                                    newly_computed[orig_text] = emb_vec.tolist()
+                                break
+
                             retry_count += 1
                             if retry_count > max_retries:
-                                raise rle
+                                logger.warning(f"Embedding retries exceeded; fallback to local model: {err}")
+                                local_model = self._get_local_model()
+                                encoded = local_model.encode(unique_missing, show_progress_bar=False)
+                                for orig_text, emb_vec in zip(unique_missing, encoded):
+                                    newly_computed[orig_text] = emb_vec.tolist()
+                                break
                             logger.warning(
-                                f"OpenAI rate limit hit. Retrying in {delay:.1f}s (attempt {retry_count}/{max_retries})."
-                            )
-                            time.sleep(delay)
-                            delay *= 2.0
-                        except APIError as apie:
-                            retry_count += 1
-                            if retry_count > max_retries:
-                                raise apie
-                            logger.warning(
-                                f"OpenAI API error ({apie}). Retrying in {delay:.1f}s (attempt {retry_count}/{max_retries})."
+                                f"Embedding API error ({err}). Retrying in {delay:.1f}s (attempt {retry_count}/{max_retries})."
                             )
                             time.sleep(delay)
                             delay *= 2.0

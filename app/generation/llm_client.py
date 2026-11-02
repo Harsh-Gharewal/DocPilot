@@ -40,6 +40,7 @@ class LLMClient:
 
         self._openai_client = None
         self._anthropic_client = None
+        self._quota_exhausted = False
 
     def _get_openai_client(self):
         """Lazily initialize OpenAI client."""
@@ -48,7 +49,9 @@ class LLMClient:
 
             if not settings.openai_api_key:
                 raise ValueError("OPENAI_API_KEY is not configured in settings or environment.")
-            self._openai_client = OpenAI(api_key=settings.openai_api_key, timeout=self.timeout)
+            self._openai_client = OpenAI(
+                api_key=settings.openai_api_key, timeout=self.timeout, max_retries=0
+            )
         return self._openai_client
 
     def _get_anthropic_client(self):
@@ -59,7 +62,7 @@ class LLMClient:
             if not settings.anthropic_api_key:
                 raise ValueError("ANTHROPIC_API_KEY is not configured in settings or environment.")
             self._anthropic_client = anthropic.Anthropic(
-                api_key=settings.anthropic_api_key, timeout=self.timeout
+                api_key=settings.anthropic_api_key, timeout=self.timeout, max_retries=0
             )
         return self._anthropic_client
 
@@ -72,6 +75,9 @@ class LLMClient:
         json_mode: bool = False,
     ) -> LLMResponse:
         """Call active LLM provider with retry logic and temperature control."""
+        if self._quota_exhausted:
+            return self._fallback_synthesizer(prompt, system_prompt, json_mode)
+
         delay = 1.0
 
         for attempt in range(1, self.max_retries + 1):
@@ -93,12 +99,24 @@ class LLMClient:
                         json_mode=json_mode,
                     )
             except Exception as e:
-                err_str = str(e)
+                err_str = str(e).lower()
                 logger.warning(
-                    f"LLM call to {self.provider} failed (attempt {attempt}/{self.max_retries}): {err_str}"
+                    f"LLM call to {self.provider} failed (attempt {attempt}/{self.max_retries}): {e}"
                 )
+
+                # Fast failover if account quota is exhausted, key is invalid, or connection blocked
+                if any(k in err_str for k in [
+                    "insufficient_quota", "credit_balance_exhausted", "invalid x-api-key",
+                    "authentication_error", "forbidden by its access permissions",
+                    "proxyerror", "connection error", "winerror 10013"
+                ]):
+                    self._quota_exhausted = True
+                    logger.warning(
+                        f"Non-retryable status or network block encountered for {self.provider}. Fast failover to internal synthesizer."
+                    )
+                    return self._fallback_synthesizer(prompt, system_prompt, json_mode)
+
                 if attempt == self.max_retries:
-                    # Provide an offline simulated response if external provider is unavailable or exhausted
                     logger.error(
                         f"All {self.max_retries} attempts failed for provider {self.provider}. Falling back to internal heuristic synthesizer."
                     )
