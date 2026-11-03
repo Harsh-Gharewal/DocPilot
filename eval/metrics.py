@@ -88,7 +88,7 @@ def compute_answer_correctness(
     cache: Optional[JudgeCache] = None,
 ) -> dict[str, Any]:
     """Judge correctness against the golden answer, with strict handling for NO_ANSWER cases."""
-    active_client = client or llm_client
+    active_client = client or LLMClient(task="judge")
     active_cache = cache or judge_cache
 
     # Special handling for no_answer cases
@@ -177,7 +177,7 @@ def compute_faithfulness(
     cache: Optional[JudgeCache] = None,
 ) -> dict[str, Any]:
     """Calculate the fraction of claims in the system answer grounded in retrieved context."""
-    active_client = client or llm_client
+    active_client = client or LLMClient(task="judge")
     active_cache = cache or judge_cache
 
     sentences = split_sentences(system_answer)

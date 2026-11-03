@@ -26,43 +26,108 @@ class LLMResponse(BaseModel):
 
 
 class LLMClient:
-    """Unified client routing requests to OpenAI or Anthropic based on LLM_PROVIDER."""
+    """Unified client routing requests to OpenAI or Anthropic based on LLM_PROVIDER.
+    
+    Supports task-specific API keys and multi-key rotation pools with automatic failover.
+    """
 
     def __init__(
         self,
         provider: Optional[str] = None,
+        task: str = "generation",
         timeout: float = 30.0,
         max_retries: int = 3,
     ):
         self.provider = (provider or settings.llm_provider).lower()
+        self.task = task
         self.timeout = timeout
         self.max_retries = max_retries
 
+        self._openai_keys = settings.get_key_pool("openai")
+        self._anthropic_keys = settings.get_key_pool("anthropic")
+
+        # Prioritize dedicated task key at front of the pool if present
+        task_key = settings.get_key_for_task(self.task, self.provider)
+        if self.provider == "openai" and task_key:
+            if task_key in self._openai_keys:
+                self._openai_keys.remove(task_key)
+            self._openai_keys.insert(0, task_key)
+        elif self.provider == "anthropic" and task_key:
+            if task_key in self._anthropic_keys:
+                self._anthropic_keys.remove(task_key)
+            self._anthropic_keys.insert(0, task_key)
+
+        self._openai_idx = 0
+        self._anthropic_idx = 0
         self._openai_client = None
         self._anthropic_client = None
         self._quota_exhausted = False
 
+    def _rotate_key(self) -> bool:
+        """Rotate to next available API key in the provider pool."""
+        if self.provider == "openai":
+            if self._openai_keys and self._openai_idx + 1 < len(self._openai_keys):
+                self._openai_idx += 1
+                self._openai_client = None
+                logger.info(
+                    f"Auto-failover: switched to backup OpenAI key index {self._openai_idx} for task '{self.task}'"
+                )
+                return True
+        elif self.provider == "anthropic":
+            if self._anthropic_keys and self._anthropic_idx + 1 < len(self._anthropic_keys):
+                self._anthropic_idx += 1
+                self._anthropic_client = None
+                logger.info(
+                    f"Auto-failover: switched to backup Anthropic key index {self._anthropic_idx} for task '{self.task}'"
+                )
+                return True
+        return False
+
+    def _resolve_endpoint_and_model(self, key: str) -> tuple[Optional[str], str]:
+        """Resolve API endpoint base_url and model name based on API key prefix."""
+        if key.startswith("gsk_"):
+            # Groq provider
+            model = "llama-3.1-8b-instant" if self.task in ("verification", "judge") else "llama-3.3-70b-versatile"
+            return "https://api.groq.com/openai/v1", model
+        elif key.startswith("AQ.") or key.startswith("AIza"):
+            # Google Gemini OpenAI-compatible provider
+            return "https://generativelanguage.googleapis.com/v1beta/openai/", "gemini-1.5-flash"
+        else:
+            # Native OpenAI provider
+            return None, settings.openai_chat_model
+
     def _get_openai_client(self):
-        """Lazily initialize OpenAI client."""
+        """Lazily initialize OpenAI-compatible client with active key from pool."""
         if self._openai_client is None:
             from openai import OpenAI
 
-            if not settings.openai_api_key:
-                raise ValueError("OPENAI_API_KEY is not configured in settings or environment.")
+            active_key = (
+                self._openai_keys[self._openai_idx]
+                if self._openai_keys
+                else settings.get_key_for_task(self.task, "openai")
+            )
+            if not active_key:
+                raise ValueError("No API key configured for OpenAI-compatible endpoint.")
+            base_url, _ = self._resolve_endpoint_and_model(active_key)
             self._openai_client = OpenAI(
-                api_key=settings.openai_api_key, timeout=self.timeout, max_retries=0
+                api_key=active_key, base_url=base_url, timeout=self.timeout, max_retries=0
             )
         return self._openai_client
 
     def _get_anthropic_client(self):
-        """Lazily initialize Anthropic client."""
+        """Lazily initialize Anthropic client with active key from pool."""
         if self._anthropic_client is None:
             import anthropic
 
-            if not settings.anthropic_api_key:
+            active_key = (
+                self._anthropic_keys[self._anthropic_idx]
+                if self._anthropic_keys
+                else settings.get_key_for_task(self.task, "anthropic")
+            )
+            if not active_key:
                 raise ValueError("ANTHROPIC_API_KEY is not configured in settings or environment.")
             self._anthropic_client = anthropic.Anthropic(
-                api_key=settings.anthropic_api_key, timeout=self.timeout, max_retries=0
+                api_key=active_key, timeout=self.timeout, max_retries=0
             )
         return self._anthropic_client
 
@@ -104,15 +169,24 @@ class LLMClient:
                     f"LLM call to {self.provider} failed (attempt {attempt}/{self.max_retries}): {e}"
                 )
 
-                # Fast failover if account quota is exhausted, key is invalid, or connection blocked
+                # Check for quota exhaustion, invalid key, or network block
                 if any(k in err_str for k in [
                     "insufficient_quota", "credit_balance_exhausted", "invalid x-api-key",
-                    "authentication_error", "forbidden by its access permissions",
-                    "proxyerror", "connection error", "winerror 10013"
+                    "authentication_error", "forbidden by its access permissions"
                 ]):
+                    if self._rotate_key():
+                        logger.info(f"Retrying prompt with rotated key for {self.provider}...")
+                        continue
                     self._quota_exhausted = True
                     logger.warning(
-                        f"Non-retryable status or network block encountered for {self.provider}. Fast failover to internal synthesizer."
+                        f"All keys exhausted for {self.provider}. Fast failover to internal synthesizer."
+                    )
+                    return self._fallback_synthesizer(prompt, system_prompt, json_mode)
+
+                if any(k in err_str for k in ["proxyerror", "connection error", "winerror 10013"]):
+                    self._quota_exhausted = True
+                    logger.warning(
+                        f"Network block encountered for {self.provider}. Fast failover to internal synthesizer."
                     )
                     return self._fallback_synthesizer(prompt, system_prompt, json_mode)
 
@@ -135,15 +209,22 @@ class LLMClient:
         max_tokens: int,
         json_mode: bool,
     ) -> LLMResponse:
-        """Execute OpenAI chat completion."""
+        """Execute OpenAI-compatible chat completion."""
         client = self._get_openai_client()
+        active_key = (
+            self._openai_keys[self._openai_idx]
+            if self._openai_keys
+            else settings.get_key_for_task(self.task, "openai")
+        )
+        _, model_name = self._resolve_endpoint_and_model(active_key)
+
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
         kwargs: dict[str, Any] = {
-            "model": settings.openai_chat_model,
+            "model": model_name,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
@@ -160,7 +241,7 @@ class LLMClient:
             prompt_tokens=usage.prompt_tokens if usage else 0,
             completion_tokens=usage.completion_tokens if usage else 0,
             total_tokens=usage.total_tokens if usage else 0,
-            model=settings.openai_chat_model,
+            model=model_name,
         )
 
     def _call_anthropic(

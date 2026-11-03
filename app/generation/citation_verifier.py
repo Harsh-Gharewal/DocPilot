@@ -27,7 +27,7 @@ class CitationVerifier:
     """Verifies citation accuracy, flags fake/unsupported references, and measures grounded coverage."""
 
     def __init__(self, client: Optional[LLMClient] = None):
-        self.client = client or llm_client
+        self.client = client or LLMClient(task="verification")
 
     def verify_answer(
         self,

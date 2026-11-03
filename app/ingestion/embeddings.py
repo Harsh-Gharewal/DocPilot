@@ -29,7 +29,9 @@ class EmbeddingClient:
         model: Optional[str] = None,
         cache_path: Optional[Path] = None,
     ):
-        self.api_key = api_key or settings.openai_api_key
+        self.api_keys = [api_key] if api_key else settings.get_key_pool("openai")
+        self.active_key_idx = 0
+        self.api_key = api_key or settings.get_key_for_task("embedding")
         self.provider = settings.embedding_provider
         self.model = model or (
             settings.openai_embedding_model
@@ -40,6 +42,16 @@ class EmbeddingClient:
         self._client: Optional[OpenAI] = None
         self._local_model = None
         self._init_cache()
+
+    def _rotate_key(self) -> bool:
+        """Rotate to the next available OpenAI embedding key in the pool. Returns True if rotated."""
+        if self.api_keys and self.active_key_idx + 1 < len(self.api_keys):
+            self.active_key_idx += 1
+            self.api_key = self.api_keys[self.active_key_idx]
+            self._client = None
+            logger.info(f"Rotated to backup embedding API key (index {self.active_key_idx})")
+            return True
+        return False
 
     def _get_local_model(self):
         """Lazily initialize sentence-transformers model for local embeddings."""
@@ -54,12 +66,22 @@ class EmbeddingClient:
             self._local_model = SentenceTransformer(local_name)
         return self._local_model
 
+    def _resolve_endpoint_and_model(self, key: str) -> tuple[Optional[str], str]:
+        """Resolve embedding endpoint base_url and model name based on API key prefix."""
+        if key.startswith("AQ.") or key.startswith("AIza"):
+            return "https://generativelanguage.googleapis.com/v1beta/openai/", "text-embedding-004"
+        return None, settings.openai_embedding_model
+
     def _get_client(self) -> OpenAI:
-        """Lazily initialize OpenAI client."""
+        """Lazily initialize OpenAI-compatible embedding client."""
         if self._client is None:
             if not self.api_key:
-                raise ValueError("OPENAI_API_KEY is not configured in settings or environment.")
-            self._client = OpenAI(api_key=self.api_key, max_retries=0, timeout=10.0)
+                raise ValueError("No embedding API key configured in settings or environment.")
+            base_url, model = self._resolve_endpoint_and_model(self.api_key)
+            self.model = model
+            self._client = OpenAI(
+                api_key=self.api_key, base_url=base_url, max_retries=0, timeout=10.0
+            )
         return self._client
 
     def _init_cache(self) -> None:
@@ -173,9 +195,19 @@ class EmbeddingClient:
                             err_str = str(err).lower()
                             if any(k in err_str for k in [
                                 "insufficient_quota", "credit_balance_exhausted", "invalid_api_key",
-                                "authentication", "connection error", "winerror", "proxyerror", "forbidden"
+                                "authentication", "forbidden"
                             ]):
+                                if self._rotate_key():
+                                    client = self._get_client()
+                                    continue
                                 logger.warning(f"Unrecoverable embedding API error ({err}). Fast failover to local sentence-transformer.")
+                                local_model = self._get_local_model()
+                                encoded = local_model.encode(unique_missing, show_progress_bar=False)
+                                for orig_text, emb_vec in zip(unique_missing, encoded):
+                                    newly_computed[orig_text] = emb_vec.tolist()
+                                break
+                            elif any(k in err_str for k in ["connection error", "winerror", "proxyerror"]):
+                                logger.warning(f"Network error in embedding API ({err}). Fast failover to local sentence-transformer.")
                                 local_model = self._get_local_model()
                                 encoded = local_model.encode(unique_missing, show_progress_bar=False)
                                 for orig_text, emb_vec in zip(unique_missing, encoded):

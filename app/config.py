@@ -5,7 +5,7 @@ Uses pydantic-settings to manage and validate all pipeline parameters.
 
 from pathlib import Path
 import os
-from typing import Literal
+from typing import Literal, Optional
 
 # Ensure offline operation for downloaded huggingface models
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
@@ -25,11 +25,22 @@ class Settings(BaseSettings):
     )
 
     # API Keys & LLM Provider
-    api_key: str = Field(default="docpilot-secret-key", description="DocPilot service API authorization key")
-    openai_api_key: str = Field(default="", description="OpenAI API Key for embeddings and GPT-4o")
-    anthropic_api_key: str = Field(default="", description="Anthropic API Key for Claude Sonnet")
-    llm_provider: Literal["openai", "anthropic"] = Field(
-        default="openai", description="Active LLM provider: 'openai' or 'anthropic'"
+    openai_api_key: str = Field(default="", description="Primary OpenAI API Key")
+    anthropic_api_key: str = Field(default="", description="Primary Anthropic API Key")
+    groq_api_key: str = Field(default="", description="Groq API Key for fast inference")
+
+    # Task-Specific API Keys (fallback to primary provider keys if not explicitly set)
+    embedding_api_key: str = Field(default="", description="Dedicated API key for embedding generation")
+    generation_api_key: str = Field(default="", description="Dedicated API key for answer generation")
+    verification_api_key: str = Field(default="", description="Dedicated API key for citation verification")
+    judge_api_key: str = Field(default="", description="Dedicated API key for evaluation benchmark judge")
+
+    # Multi-Key Rotation Pools (comma-separated list of keys for auto-failover)
+    openai_api_keys: str = Field(default="", description="Comma-separated OpenAI keys for auto-failover pool")
+    anthropic_api_keys: str = Field(default="", description="Comma-separated Anthropic keys for auto-failover pool")
+
+    llm_provider: Literal["openai", "anthropic", "groq"] = Field(
+        default="openai", description="Active LLM provider: 'openai', 'anthropic', or 'groq'"
     )
 
     # Models
@@ -111,6 +122,59 @@ class Settings(BaseSettings):
     api_host: str = Field(default="0.0.0.0", description="FastAPI host")
     api_port: int = Field(default=8000, description="FastAPI port")
     api_key: str = Field(default="rag-internal-dev-key", description="Internal API key for authentication")
+
+    def get_key_pool(self, provider: str = "openai") -> list[str]:
+        """Return all configured API keys for a provider in priority order."""
+        prov = provider.lower()
+        keys: list[str] = []
+        if prov == "openai":
+            if self.openai_api_keys:
+                keys.extend([k.strip() for k in self.openai_api_keys.split(",") if k.strip()])
+            if self.openai_api_key and self.openai_api_key not in keys:
+                keys.append(self.openai_api_key.strip())
+        elif prov == "anthropic":
+            if self.anthropic_api_keys:
+                keys.extend([k.strip() for k in self.anthropic_api_keys.split(",") if k.strip()])
+            if self.anthropic_api_key and self.anthropic_api_key not in keys:
+                keys.append(self.anthropic_api_key.strip())
+        elif prov == "groq":
+            if self.groq_api_key:
+                keys.append(self.groq_api_key.strip())
+        return keys
+
+    def get_key_for_task(self, task: str, provider: Optional[str] = None) -> str:
+        """Resolve the active API key for a specific task with smart fallbacks."""
+        task_lower = task.lower()
+        if task_lower in ("embedding", "embeddings"):
+            if self.embedding_api_key:
+                return self.embedding_api_key.strip()
+            pool = self.get_key_pool("openai")
+            return pool[0] if pool else self.openai_api_key.strip()
+
+        if task_lower == "verification":
+            if self.verification_api_key:
+                return self.verification_api_key.strip()
+            if self.generation_api_key:
+                return self.generation_api_key.strip()
+            prov = provider or self.llm_provider
+            pool = self.get_key_pool(prov)
+            return pool[0] if pool else (self.openai_api_key if prov == "openai" else self.anthropic_api_key)
+
+        if task_lower == "judge":
+            if self.judge_api_key:
+                return self.judge_api_key.strip()
+            if self.generation_api_key:
+                return self.generation_api_key.strip()
+            prov = provider or self.llm_provider
+            pool = self.get_key_pool(prov)
+            return pool[0] if pool else (self.openai_api_key if prov == "openai" else self.anthropic_api_key)
+
+        # Default: generation / synthesis
+        if self.generation_api_key:
+            return self.generation_api_key.strip()
+        prov = provider or self.llm_provider
+        pool = self.get_key_pool(prov)
+        return pool[0] if pool else (self.openai_api_key if prov == "openai" else self.anthropic_api_key)
 
 
 # Singleton instance
